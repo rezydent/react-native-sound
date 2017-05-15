@@ -37,17 +37,26 @@ public class RNSoundModule extends ReactContextBaseJavaModule {
   @ReactMethod
   public void prepare(final String fileName, final Integer key, final Callback callback) {
     MediaPlayer player = createMediaPlayer(fileName);
-    if (player == null) {
-      WritableMap e = Arguments.createMap();
-      e.putInt("code", -1);
-      e.putString("message", "resource not found");
-      callback.invoke(e);
-      return;
-    }
-    this.playerPool.put(key, player);
-    WritableMap props = Arguments.createMap();
-    props.putDouble("duration", player.getDuration() * .001);
-    callback.invoke(NULL, props);
+    
+    player.prepareAsync();
+    final RNSoundModule callee = this;
+
+    player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+      @Override
+      public void onPrepared(MediaPlayer player) {
+        if (player == null) {
+          WritableMap e = Arguments.createMap();
+          e.putInt("code", -1);
+          e.putString("message", "resource not found");
+          callback.invoke(e);
+          return;
+        }
+        callee.playerPool.put(key, player);
+        WritableMap props = Arguments.createMap();
+        props.putDouble("duration", player.getDuration() * .001);
+        callback.invoke(NULL, props);
+      }
+    });
   }
 
   protected MediaPlayer createMediaPlayer(final String fileName) {
