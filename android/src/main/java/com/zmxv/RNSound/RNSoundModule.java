@@ -38,25 +38,41 @@ public class RNSoundModule extends ReactContextBaseJavaModule {
   public void prepare(final String fileName, final Integer key, final Callback callback) {
     MediaPlayer player = createMediaPlayer(fileName);
     
-    player.prepareAsync();
+    if (player == null) {
+      WritableMap e = Arguments.createMap();
+      e.putInt("code", -1);
+      e.putString("message", "resource not found");
+      callback.invoke(e);
+      return;
+    }
+
     final RNSoundModule callee = this;
+    this.playerPool.put(key, player);
 
     player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
       @Override
-      public void onPrepared(MediaPlayer player) {
-        if (player == null) {
-          WritableMap e = Arguments.createMap();
-          e.putInt("code", -1);
-          e.putString("message", "resource not found");
-          callback.invoke(e);
-          return;
-        }
-        callee.playerPool.put(key, player);
+      public synchronized void onPrepared(MediaPlayer mp) {
+        mp.setOnErrorListener(null);
         WritableMap props = Arguments.createMap();
-        props.putDouble("duration", player.getDuration() * .001);
+        props.putDouble("duration", mp.getDuration() * .001);
         callback.invoke(NULL, props);
       }
     });
+
+    player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+      @Override
+      public synchronized boolean onError(MediaPlayer mp, int what, int extra) {
+        mp.setOnErrorListener(null);
+        callee.release(key);
+        WritableMap e = Arguments.createMap();
+        e.putInt("code", what);
+        e.putInt("message", extra);
+        callback.invoke(e);
+        return true;
+      }
+    });
+
+    player.prepareAsync();
   }
 
   protected MediaPlayer createMediaPlayer(final String fileName) {
