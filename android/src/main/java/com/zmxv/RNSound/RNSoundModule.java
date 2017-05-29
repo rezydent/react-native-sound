@@ -49,30 +49,36 @@ public class RNSoundModule extends ReactContextBaseJavaModule {
     final RNSoundModule callee = this;
     this.playerPool.put(key, player);
 
-    player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-      @Override
-      public synchronized void onPrepared(MediaPlayer mp) {
-        mp.setOnErrorListener(null);
-        WritableMap props = Arguments.createMap();
-        props.putDouble("duration", mp.getDuration() * .001);
-        callback.invoke(NULL, props);
-      }
-    });
+    if (fileName.startsWith("http://") || fileName.startsWith("https://")) {
+      player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+        @Override
+        public synchronized void onPrepared(MediaPlayer mp) {
+          mp.setOnErrorListener(null);
+          WritableMap props = Arguments.createMap();
+          props.putDouble("duration", mp.getDuration() * .001);
+          callback.invoke(NULL, props);
+        }
+      });
 
-    player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-      @Override
-      public synchronized boolean onError(MediaPlayer mp, int what, int extra) {
-        mp.setOnErrorListener(null);
-        callee.release(key);
-        WritableMap e = Arguments.createMap();
-        e.putInt("code", what);
-        e.putInt("message", extra);
-        callback.invoke(e);
-        return true;
-      }
-    });
+      player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+        @Override
+        public synchronized boolean onError(MediaPlayer mp, int what, int extra) {
+          mp.setOnErrorListener(null);
+          callee.release(key);
+          WritableMap e = Arguments.createMap();
+          e.putInt("code", what);
+          e.putInt("message", extra);
+          callback.invoke(e);
+          return true;
+        }
+      });
 
-    player.prepareAsync();
+      player.prepareAsync();
+    } else {
+      WritableMap props = Arguments.createMap();
+      props.putDouble("duration", player.getDuration() * .001);
+      callback.invoke(NULL, props);
+    }
   }
 
   protected MediaPlayer createMediaPlayer(final String fileName) {
